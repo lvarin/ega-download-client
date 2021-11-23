@@ -1,3 +1,6 @@
+'''
+    This will handle the token retrieval. It offers two options, EGA and Passports
+'''
 import logging
 import sys
 import time
@@ -6,6 +9,10 @@ import requests
 
 
 class AuthClient:
+    '''
+       It will use the credentials provided (username/password) to authenticate to EGA
+       and obtain a token
+    '''
     _token = None
     credentials = None
     token_expires_at = None
@@ -18,6 +25,9 @@ class AuthClient:
 
     @property
     def token(self):
+        '''
+            Start remote authentication workflow using EGA accounts
+        '''
         if self._token is None or time.time() >= self.token_expires_at:
 
             headers = {'Content-Type': 'application/x-www-form-urlencoded'}
