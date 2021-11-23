@@ -1,0 +1,5 @@
+[authentication]
+client_id =
+client_secret =
+url_auth = https://login.elixir-czech.org/oidc/devicecode
+url_token = https://login.elixir-czech.org/oidc/token
