@@ -42,16 +42,16 @@ class AuthClient:
                     }
 
             try:
-                r = requests.post(self.url, headers=headers, data=data)
+                req = requests.post(self.url, headers=headers, data=data)
                 logging.info('')
-                reply = r.json()
-                r.raise_for_status()
+                reply = req.json()
+                req.raise_for_status()
                 oauth_token = reply['access_token']
                 logging.info(f"Authentication success for user '{self.credentials.username}'")
             except ConnectionError:
                 logging.exception(f"Could not connect to the authentication service at {self.url}. "
-                                  f"Check that the necessary outbound ports are open in your firewall. "
-                                  f"See the documentation for more information.")
+                                  f"Check that the necessary outbound ports are open in your "
+                                  f"firewall. See the documentation for more information.")
                 sys.exit()
             except Exception:
                 logging.exception(
