@@ -7,7 +7,7 @@ import os
 import platform
 import random
 
-from pyega3.libs.auth_client import AuthClient
+from pyega3.libs.auth_client import AuthClientEGA, AuthClientPassport
 from pyega3.libs.credentials import Credentials
 from pyega3.libs.data_client import DataClient
 from pyega3.libs.server_config import ServerConfig
@@ -31,6 +31,7 @@ def main():
     parser.add_argument("-c", "--connections", type=int, default=1,
                         help="Download using specified number of connections (default: 1 connection)")
     parser.add_argument("-t", "--test", action="store_true", help="Test user activated")
+    parser.add_argument("-p", "--passport", action="store_true", help="Uses AAI passport authentication")
     parser.add_argument("-ms", "--max-slice-size", type=int, default=DataFile.DEFAULT_SLICE_SIZE,
                         help="Set maximum size for each slice in bytes (default: 100 MB)")
     parser.add_argument("-j", "--json", action="store_true", help="Output data in JSON format instead of tables")
@@ -115,6 +116,8 @@ def main():
 
     if args.test:
         credentials = Credentials.from_file(config_file_path)
+    elif args.passport:
+        credentials = None
     elif args.config_file is None:
         credentials = Credentials.from_file("credential_file.json")
     else:
@@ -130,7 +133,10 @@ def main():
 
     standard_headers = {'Client-Version': version, 'Session-Id': str(session_id), 'client-ip': get_client_ip()}
 
-    auth_client = AuthClient(server_config.url_auth, server_config.client_secret, standard_headers)
+    if args.passport:
+        auth_client = AuthClientPassport()
+    else:
+        auth_client = AuthClientEGA(server_config.url_auth, server_config.client_secret, standard_headers)
     auth_client.credentials = credentials
 
     data_client = DataClient(server_config.url_api, server_config.url_api_ticket, auth_client, standard_headers)
