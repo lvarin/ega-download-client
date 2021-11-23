@@ -138,3 +138,6 @@ dmypy.json
 cython_debug/
 
 .idea/
+
+access_token.txt
+auth.cfg
