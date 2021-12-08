@@ -105,6 +105,9 @@ class AuthClientPassport:
 
         token_response = self.poll_for_token()
 
+        if 'expires_in' in token_response:
+            logging.debug("Expires in: %s seconds", token_response['expires_in'])
+
         if 'access_token' in token_response:
 
             if logging.DEBUG >= logging.root.level:
@@ -112,7 +115,7 @@ class AuthClientPassport:
                 userinfo = make_userinfo_request(token_response)
                 logging.debug("User info: ")
                 for key, val in userinfo.items():
-                    logging.debug(key, "=>", val)
+                    logging.debug("%s=>%s", key, val)
 
             self._token = token_response.get("access_token")
             self.save_token()
