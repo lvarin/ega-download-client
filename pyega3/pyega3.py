@@ -7,13 +7,13 @@ import os
 import platform
 import random
 
-from pyega3.libs.auth_client import AuthClientEGA, AuthClientPassport
-from pyega3.libs.credentials import Credentials
-from pyega3.libs.data_client import DataClient
-from pyega3.libs.server_config import ServerConfig
-from pyega3.libs.utils import get_client_ip
-from pyega3.libs.data_file import DataFile
-from pyega3.libs.commands import execute_subcommand
+from libs.auth_client import AuthClientEGA, AuthClientPassport
+from libs.credentials import Credentials
+from libs.data_client import DataClient
+from libs.server_config import ServerConfig
+from libs.utils import get_client_ip
+from libs.data_file import DataFile
+from libs.commands import execute_subcommand
 
 version = "3.4.2"
 session_id = random.getrandbits(32)
@@ -137,6 +137,9 @@ def main():
         auth_client = AuthClientPassport()
     else:
         auth_client = AuthClientEGA(server_config.url_auth, server_config.client_secret, standard_headers)
+
+    auth_client.token
+
     auth_client.credentials = credentials
 
     data_client = DataClient(server_config.url_api, server_config.url_api_ticket, auth_client, standard_headers)

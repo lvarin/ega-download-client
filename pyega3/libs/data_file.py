@@ -12,7 +12,7 @@ import htsget
 import psutil
 from tqdm import tqdm
 
-from pyega3.libs import utils
+from libs import utils
 
 DOWNLOAD_FILE_MEMORY_BUFFER_SIZE = 32 * 1024
 

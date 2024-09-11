@@ -8,8 +8,9 @@ import platform
 
 from collections import namedtuple
 #import traceback
-from os import chmod, stat
+from os import chmod
 from configparser import ConfigParser, MissingSectionHeaderError
+import jwt
 import requests
 import qrcode
 
@@ -79,20 +80,23 @@ class AuthClientPassport:
         will be then retrieved by the client.
     '''
     _token = None
+    _refresh_token = None
     credentials = None
     grant_type = 'urn:ietf:params:oauth:grant-type:device_code'
 
     def __init__(self,
                  authentication_parameters_file="auth.cfg",
-                 access_token="access_token.txt"):
+                 access_token="access_token.txt",
+                 access_refresh_token="access_refresh_token.txt"):
         self.authentication_parameters_file = authentication_parameters_file
         self.access_token = access_token
+        self.access_refresh_token = access_refresh_token
 
     @property
     def token(self):
         """Start remote authentication workflow."""
 
-        # check if we have a valid token
+        # check if we have a valid token in file
         self._token = self.load_token()
         # None or token
         if self._token:
@@ -100,18 +104,33 @@ class AuthClientPassport:
 
         logging.debug("\n * Requesting token")
 
+        self._refresh_token = self.load_refresh_token()
+        if self._refresh_token:
+            # TODO maybe use here the refresh_token to try to get the access_token
+            logging.debug("\n * Using the Refresh TOKEN to get the access token")
+
         self.credentials = self.get_auth_credentials()
         self.remote_auth_instructions()
 
-        token_response = self.poll_for_token()
+        try:
+            token_response = self.poll_for_token()
+        except KeyboardInterrupt:
+            logging.error("Keyboard interrupt found, exiting")
+            sys.exit(2)
 
         if 'expires_in' in token_response:
             logging.debug("Expires in: %s seconds", token_response['expires_in'])
 
+        if 'refresh_token' in token_response:
+            logging.debug('Refresh Token: %s', token_response.get("refresh_token"))
+            self._refresh_token = token_response.get("refresh_token")
+            self.save_refresh_token()
+
         if 'access_token' in token_response:
 
+            logging.debug('Access Token: %s', token_response.get("access_token"))
+
             if logging.DEBUG >= logging.root.level:
-                logging.debug('Access Token: %s', token_response.get("access_token"))
                 userinfo = make_userinfo_request(token_response)
                 logging.debug("User info: ")
                 for key, val in userinfo.items():
@@ -119,7 +138,7 @@ class AuthClientPassport:
 
             self._token = token_response.get("access_token")
             self.save_token()
-            #return token_response.get("access_token")
+
             return self._token
 
         logging.debug('Error: Authentication response did not contain an access token.')
@@ -146,7 +165,7 @@ class AuthClientPassport:
 
     def get_auth_credentials(self):
         '''
-            Makes the request to authentication server and retrieve remote authentication
+            Makes the request to the authentication server and retrieves remote authentication
             credentials.
         '''
 
@@ -155,6 +174,9 @@ class AuthClientPassport:
         client_id = config.client_id
         client_s = config.client_s
         url_auth = config.url_auth
+
+        logging.debug("Calling (%s) with client_id: %s, scope: '%s'", url_auth, client_id,
+                      config.scope)
 
         # Make a request to authentication server
         response = requests.post(url_auth,
@@ -171,6 +193,8 @@ class AuthClientPassport:
                 'scope': %s}
     """, client_id, client_s, client_id, config.scope)
             sys.exit(5)
+
+        logging.debug("Response json: %s", response.json())
         return response.json()
 
     def poll_for_token(self):
@@ -195,6 +219,8 @@ class AuthClientPassport:
             time.sleep(interval)
             timeout -= interval
 
+            logging.debug("Calling (%s) with grang_type: %s, client_id: %s, scope: '%s'",
+                          url_token, self.grant_type, client_id, config.scope)
             # Request token from authentication server
             token_response = requests.post(url_token,
                                            auth=(client_id, client_s),
@@ -203,6 +229,8 @@ class AuthClientPassport:
                                                  'client_id': client_id,
                                                  'scope': config.scope
                                                 })
+
+            logging.debug(token_response.json().keys())
 
             if 'error' in token_response.json():
                 if token_response.json()['error'] == 'authorization_pending':
@@ -264,25 +292,68 @@ class AuthClientPassport:
         logging.info("The Access Token is saved into access_token.txt file.")
 
     def load_token(self):
-        """Save access token to file."""
+        """Loads access token from file."""
 
         logging.debug(' * Looking for saved access tokens.')
 
         try:
-            file_age = stat(self.access_token).st_mtime
-            # for this service 6 h
-            if time.time() - file_age < 21600:
-                # Stored access token file is less than one hour old, load the token
-                with open(self.access_token, 'r') as token_file:
-                    logging.debug('Found a saved access token. Skipping authentication.')
-                    return token_file.read()
-            else:
+            # Stored access token file is less than one hour old, load the token
+            with open(self.access_token, 'r') as token_file:
+                token = token_file.read()
+                try:
+                    jwt.decode(token, options={"verify_signature": False,
+                                               'verify_exp':'verify_signature'})
+                except jwt.exceptions.ExpiredSignatureError:
+                    logging.error("TOKEN has expired")
+                    return None
+
+                logging.debug('Found a saved access token. Skipping authentication.')
+                return token
+            #else:
             # EGA Data API doesn't allow tokens that are older than one hour
-                logging.debug('Found an old access token. Proceed with authentication.')
-                return None
+            #    logging.debug('Found an old access token. Proceed with authentication.')
+            #    return None
         except FileNotFoundError as err:
             logging.debug("No fresh access tokens found, proceed with authentication. %s", err)
             return None
+
+    def save_refresh_token(self):
+        '''
+            Saves the given token to the file access_refresh_token.txt
+        '''
+        with open(self.access_refresh_token, 'w+') as token_file:
+            token_file.write(self._refresh_token)
+        chmod(self.access_refresh_token, 0o600)
+        logging.info("The Access Refresh Token is saved into access_refresh_token.txt file.")
+
+    def load_refresh_token(self):
+        '''
+            Loads access refresh token from file
+        '''
+
+        logging.debug(' * Looking for saved access refresh tokens in %s.', self.access_refresh_token)
+
+        try:
+            # Stored access token file is less than one hour old, load the token
+            with open(self.access_refresh_token, 'r') as token_file:
+                token = token_file.read()
+                try:
+                    jwt.decode(token, options={"verify_signature": False,
+                                               'verify_exp':'verify_signature'})
+                except jwt.exceptions.ExpiredSignatureError:
+                    logging.error("TOKEN has expired")
+                    return None
+
+                logging.debug('Found a saved access refresh token. Skipping authentication.')
+                return token
+            #else:
+            # EGA Data API doesn't allow tokens that are older than one hour
+            #    logging.debug('Found an old access token. Proceed with authentication.')
+            #    return None
+        except FileNotFoundError as err:
+            logging.debug("No fresh access tokens found, proceed with authentication. %s", err)
+            return None
+
 
 def draw_qr_code(url):
     """Draw QR code."""

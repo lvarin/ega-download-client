@@ -1,7 +1,7 @@
 import logging
 import json
 
-from pyega3.libs.utils import status_ok
+from libs.utils import status_ok
 
 
 def pretty_print_authorized_datasets(datasets, as_json):

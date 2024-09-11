@@ -28,6 +28,8 @@ class DataClient:
 
         url = f"{self.url}{path}"
         r = requests.get(url, headers=headers)
+        logging.debug(r.json())
+
         r.raise_for_status()
 
         reply = r.json()

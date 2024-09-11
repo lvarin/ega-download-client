@@ -4,10 +4,10 @@ import sys
 
 from requests.exceptions import HTTPError
 
-from pyega3.libs import data_file
-from pyega3.libs.data_set import DataSet
-from pyega3.libs.pretty_printing import pretty_print_authorized_datasets, pretty_print_files_in_dataset
-from pyega3.libs.utils import verify_output_dir
+from libs import data_file
+from libs.data_set import DataSet
+from libs.pretty_printing import pretty_print_authorized_datasets, pretty_print_files_in_dataset
+from libs.utils import verify_output_dir
 
 
 def execute_subcommand(args, data_client):
@@ -29,6 +29,8 @@ def execute_subcommand(args, data_client):
             logging.error("The EGA repository refused your request because you have made too many requests.\n"
                           "Please wait before making further requests. If you are running pyega3 in a script, please "
                           "add delays between your calls.")
+        elif error.response.status_code == 401:
+            logging.error(f"The EGA repository has refused to authenticate the user with the given TOKEN, {error}")
         else:
             logging.error(f"There was a problem communicating with the EGA repository: {error}")
 

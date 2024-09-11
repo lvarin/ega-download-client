@@ -87,8 +87,11 @@ def get_client_ip():
             return unknown_status
 
         data = response.json()
+
+        logging.info(data)
         return data['ip']
-    except Exception:
+    except Exception as exp:
+        logging.error(exp)
         logging.error("Failed to obtain IP address")
         return unknown_status
 
