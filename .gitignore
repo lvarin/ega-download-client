@@ -140,4 +140,5 @@ cython_debug/
 .idea/
 
 access_token.txt
+access_refresh_token.txt
 auth.cfg
